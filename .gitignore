@@ -50,3 +50,10 @@ agentic-service/.pytest_cache/
 agentic-service/.ruff_cache/
 agentic-service/data/*
 !agentic-service/data/.gitkeep
+
+# FAISS vector store
+agentic-service/faiss_index/
+
+# Test files
+test-doc.txt
+test-*.txt

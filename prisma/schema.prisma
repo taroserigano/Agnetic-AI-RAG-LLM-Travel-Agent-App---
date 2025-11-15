@@ -26,3 +26,28 @@ model Token {
   clerkId String @id
   tokens Int @default (1000)
 }
+
+enum KnowledgeStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model KnowledgeDocument {
+  id            String          @id @default(uuid())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  userId        String
+  title         String
+  filename      String
+  mimeType      String
+  size          Int
+  chunkCount    Int             @default(0)
+  tokenEstimate Int             @default(0)
+  status        KnowledgeStatus @default(PROCESSING)
+  error         String?
+  notes         String?
+  sourceUrl     String?
+
+  @@index([userId])
+}

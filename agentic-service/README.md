@@ -24,12 +24,13 @@ Python microservice exposing LangGraph-powered multi-agent itinerary planning vi
 2. **Configure environment**
    Create `.env` with:
 
-   ```
-   DATABASE_URL=postgresql://user:pass@host:port/db
-   OPENAI_API_KEY=sk-...
-   OLLAMA_BASE_URL=http://localhost:11434  # or remote Ollama server
-   FAISS_INDEX_PATH=./data/faiss_index
-   ```
+```
+DATABASE_URL=postgresql://user:pass@host:port/db
+OPENAI_API_KEY=sk-...
+OLLAMA_BASE_URL=http://localhost:11434  # or remote Ollama server
+FAISS_INDEX_PATH=./data/faiss_index
+HF_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+```
 
 3. **Run locally**
    ```bash
@@ -42,6 +43,9 @@ Python microservice exposing LangGraph-powered multi-agent itinerary planning vi
 - **POST /api/agentic/plan** – trigger multi-agent itinerary generation
   - Input: `{ "city": "Tokyo", "country": "Japan", "days": 5, "budget": 3000, "preferences": {...} }`
   - Output: `{ "run_id": "...", "tour": {...}, "cost": {...}, "citations": [...] }`
+- **POST /api/v1/vault/upload** – chunk + embed an uploaded PDF/TXT into the user’s FAISS index
+  - Multipart body: `file`, `documentId`, `userId`, `title`, optional `notes`
+  - Output: `{ "documentId": "...", "chunkCount": 42, "tokenEstimate": 12000 }`
 
 ## Architecture
 

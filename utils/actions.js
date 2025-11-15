@@ -1,7 +1,7 @@
-'use server';
-import OpenAI from 'openai';
-import prisma from './db';
-import { revalidatePath } from 'next/cache';
+"use server";
+import OpenAI from "openai";
+import prisma from "./db";
+import { revalidatePath } from "next/cache";
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -10,10 +10,10 @@ export const generateChatResponse = async (chatMessages) => {
   try {
     const response = await openai.chat.completions.create({
       messages: [
-        { role: 'system', content: 'you are a helpful assistant' },
+        { role: "system", content: "you are a helpful assistant" },
         ...chatMessages,
       ],
-      model: 'gpt-3.5-turbo',
+      model: "gpt-3.5-turbo",
       temperature: 0,
       max_tokens: 100,
     });
@@ -45,13 +45,13 @@ If you can't find info on exact ${city}, or ${city} does not exist, or it's popu
   try {
     const response = await openai.chat.completions.create({
       messages: [
-        { role: 'system', content: 'you are a tour guide' },
+        { role: "system", content: "you are a tour guide" },
         {
-          role: 'user',
+          role: "user",
           content: query,
         },
       ],
-      model: 'gpt-3.5-turbo',
+      model: "gpt-3.5-turbo",
       temperature: 0,
     });
 
@@ -87,7 +87,7 @@ export const getAllTours = async (searchTerm) => {
   if (!searchTerm) {
     const tours = await prisma.tour.findMany({
       orderBy: {
-        city: 'asc',
+        city: "asc",
       },
     });
     return tours;
@@ -108,7 +108,7 @@ export const getAllTours = async (searchTerm) => {
       ],
     },
     orderBy: {
-      city: 'asc',
+      city: "asc",
     },
   });
   return tours;
@@ -127,7 +127,7 @@ export const generateTourImage = async ({ city, country }) => {
     const tourImage = await openai.images.generate({
       prompt: `a panoramic view of teh ${city} ${country}`,
       n: 1,
-      size: '512x512',
+      size: "512x512",
     });
     return tourImage?.data[0]?.url;
   } catch (error) {
@@ -173,7 +173,32 @@ export const subtractTokens = async (clerkId, tokens) => {
       },
     },
   });
-  revalidatePath('/profile');
+  revalidatePath("/profile");
   // Return the new token value
   return result.tokens;
+};
+
+export const getKnowledgeDocuments = async (userId) => {
+  if (!userId) return [];
+  return prisma.knowledgeDocument.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+export const createKnowledgeDocument = async (payload) => {
+  return prisma.knowledgeDocument.create({
+    data: payload,
+  });
+};
+
+export const updateKnowledgeDocument = async (id, data) => {
+  return prisma.knowledgeDocument.update({
+    where: { id },
+    data,
+  });
 };

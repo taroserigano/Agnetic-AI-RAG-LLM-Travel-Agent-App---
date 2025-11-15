@@ -19,6 +19,11 @@ transformers==4.37.0
 sentence-transformers==2.3.1
 torch>=2.6.0
 
+# FastAPI uploads & PDF parsing
+python-multipart==0.0.9
+pypdf==3.17.4
+python-docx==1.1.0
+
 # FAISS for vector search
 faiss-cpu==1.8.0
 
