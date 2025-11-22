@@ -8,11 +8,14 @@ import json
 
 from fastapi import UploadFile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
 from pypdf import PdfReader
 from docx import Document
 import openai
+
+# Use sentence-transformers directly to avoid LangChain metaclass issues
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
 
 from config import settings
 
@@ -30,11 +33,13 @@ class VaultIngestionService:
         self.index_dir.mkdir(parents=True, exist_ok=True)
 
         # Embedder + splitter reused across requests to avoid reload overhead.
-        self.embedder = HuggingFaceEmbeddings(model_name=settings.hf_model_name)
+        self.embedder_model = SentenceTransformer(settings.hf_model_name)
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=800,
             chunk_overlap=200,
         )
+        # Simple FAISS index (will be loaded/created as needed)
+        self.dimension = 384  # MiniLM embedding dimension
 
     def ingest_document(
         self,

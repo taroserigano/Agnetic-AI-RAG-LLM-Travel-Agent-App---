@@ -3,6 +3,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import TravelAgent from "./TravelAgent";
 import {
   getChatSessions,
   createChatSession,
@@ -30,7 +31,7 @@ const KnowledgeVault = ({ userId, initialDocuments }) => {
   const [followUpQuestions, setFollowUpQuestions] = useState([]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState("chat");
+  const [activeTab, setActiveTab] = useState("travel");
   const [deletingId, setDeletingId] = useState(null);
 
   // Chat sessions
@@ -403,6 +404,17 @@ const KnowledgeVault = ({ userId, initialDocuments }) => {
           <div className="tabs tabs-boxed bg-base-200 p-2">
             <a
               className={`tab tab-lg ${
+                activeTab === "travel" ? "tab-active" : ""
+              }`}
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveTab("travel");
+              }}
+            >
+              ✈️ Travel Agent
+            </a>
+            <a
+              className={`tab tab-lg ${
                 activeTab === "chat" ? "tab-active" : ""
               }`}
               onClick={(e) => {
@@ -446,6 +458,11 @@ const KnowledgeVault = ({ userId, initialDocuments }) => {
 
           {/* Tab Content */}
           <div className="p-6">
+            {/* Travel Agent Tab */}
+            {activeTab === "travel" && (
+              <TravelAgent userId={userId} />
+            )}
+
             {/* Chat Tab */}
             {activeTab === "chat" && (
               <div className="space-y-6">

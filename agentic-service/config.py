@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # Optional external APIs
     google_maps_api_key: Optional[str] = None
     amadeus_api_key: Optional[str] = None
+    amadeus_api_secret: Optional[str] = None
     openweather_api_key: Optional[str] = None
 
 
