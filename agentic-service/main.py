@@ -54,9 +54,23 @@ app = FastAPI(
 )
 
 # CORS for Next.js frontend
+# Allow localhost for development and Render URLs for production
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001", 
+    "http://localhost:3002",
+]
+
+# Add production frontend URL if available
+if settings.frontend_url:
+    allowed_origins.append(settings.frontend_url)
+    # Also allow https variant
+    if settings.frontend_url.startswith("http://"):
+        allowed_origins.append(settings.frontend_url.replace("http://", "https://"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

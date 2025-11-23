@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     amadeus_api_key: Optional[str] = None
     amadeus_api_secret: Optional[str] = None
     openweather_api_key: Optional[str] = None
+    
+    # Production settings
+    frontend_url: Optional[str] = None
+    port: int = 8000
+    environment: str = "development"
 
 
 settings = Settings()
