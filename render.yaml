@@ -17,8 +17,7 @@ services:
     buildCommand: |
       cd agentic-service && 
       pip install --upgrade pip && 
-      pip install -r requirements.txt &&
-      prisma generate
+      pip install -r requirements.txt
     startCommand: cd agentic-service && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
