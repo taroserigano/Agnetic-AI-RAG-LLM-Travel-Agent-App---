@@ -60,6 +60,18 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Check AGENTIC_SERVICE_URL
+  if (!AGENTIC_SERVICE_URL) {
+    console.error("[VAULT UPLOAD] AGENTIC_SERVICE_URL not configured");
+    return NextResponse.json(
+      { 
+        error: "Backend service not configured",
+        detail: "AGENTIC_SERVICE_URL environment variable is missing"
+      },
+      { status: 500 }
+    );
+  }
+
   const formData = await request.formData();
   const file = formData.get("file");
   if (!file || typeof file === "string") {

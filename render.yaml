@@ -62,6 +62,9 @@ services:
       - key: NEXT_PUBLIC_API_URL
         sync: false
         # Set this manually in Render dashboard to: https://traveler-backend.onrender.com
+      - key: AGENTIC_SERVICE_URL
+        sync: false
+        # Set this to the same value as NEXT_PUBLIC_API_URL (backend URL)
       - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
         sync: false
         # REQUIRED: Set your Clerk publishable key in Render dashboard
