@@ -98,8 +98,17 @@ class VaultIngestionService:
         if not chunks:
             raise ValueError("Unable to generate chunks from uploaded document.")
 
-        store = self._load_or_create_index()
-        metadatas = [
+        # Load or create FAISS index and metadata
+        index, existing_metadata = self._load_or_create_index()
+        
+        # Generate embeddings for new chunks
+        embeddings = self.embedder_model.encode(chunks, convert_to_numpy=True)
+        
+        # Add to index
+        index.add(embeddings.astype('float32'))
+        
+        # Prepare metadata for new chunks
+        new_metadatas = [
             {
                 "document_id": document_id,
                 "user_id": user_id,
@@ -107,16 +116,16 @@ class VaultIngestionService:
                 "title": title,
                 "notes": notes,
                 "source_path": str(saved_path),
+                "text": chunks[idx],
             }
             for idx in range(len(chunks))
         ]
-
-        if store:
-            store.add_texts(chunks, metadatas=metadatas)
-        else:
-            store = FAISS.from_texts(chunks, embedding=self.embedder, metadatas=metadatas)
-
-        store.save_local(str(self.index_dir))
+        
+        # Combine with existing metadata
+        all_metadata = existing_metadata + new_metadatas
+        
+        # Save index and metadata
+        self._save_index(index, all_metadata)
         token_estimate = math.ceil(len(raw_text) / 4)
 
         # Store relative path from upload_dir for portability
@@ -166,13 +175,29 @@ class VaultIngestionService:
         return "\n".join(paragraph.text for paragraph in document.paragraphs)
 
     def _load_or_create_index(self):
-        index_files = list(self.index_dir.glob("*"))
-        if index_files:
-            return FAISS.load_local(
-                str(self.index_dir),
-                self.embedder,
-            )
-        return None
+        """Load existing FAISS index and metadata, or create new ones."""
+        index_file = self.index_dir / "index.faiss"
+        metadata_file = self.index_dir / "metadata.json"
+        
+        if index_file.exists() and metadata_file.exists():
+            # Load existing index
+            index = faiss.read_index(str(index_file))
+            with open(metadata_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+            return index, metadata
+        else:
+            # Create new index
+            index = faiss.IndexFlatL2(self.dimension)
+            return index, []
+    
+    def _save_index(self, index, metadata):
+        """Save FAISS index and metadata to disk."""
+        index_file = self.index_dir / "index.faiss"
+        metadata_file = self.index_dir / "metadata.json"
+        
+        faiss.write_index(index, str(index_file))
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
 
     def query_documents(
         self,
@@ -184,23 +209,30 @@ class VaultIngestionService:
         Query FAISS index for documents relevant to user's question.
         Filters results by user_id to ensure data isolation.
         """
-        store = self._load_or_create_index()
-        if not store:
+        index, metadata = self._load_or_create_index()
+        if index.ntotal == 0:  # No vectors in index
             return []
 
-        # Retrieve top results with scores
-        results = store.similarity_search_with_score(query, k=top_k * 3)
-
+        # Generate query embedding
+        query_embedding = self.embedder_model.encode([query], convert_to_numpy=True)
+        
+        # Search for similar vectors (k = top_k * 3 to allow for filtering)
+        distances, indices = index.search(query_embedding.astype('float32'), min(top_k * 3, index.ntotal))
+        
         # Filter by user_id and format results
         filtered_results = []
-        for doc, score in results:
-            if doc.metadata.get("user_id") == user_id:
+        for idx, distance in zip(indices[0], distances[0]):
+            if idx >= len(metadata):
+                continue
+            
+            meta = metadata[idx]
+            if meta.get("user_id") == user_id:
                 filtered_results.append({
-                    "text": doc.page_content,
-                    "title": doc.metadata.get("title", "Unknown"),
-                    "document_id": doc.metadata.get("document_id"),
-                    "chunk_index": doc.metadata.get("chunk_index", 0),
-                    "relevance_score": float(score),
+                    "text": meta.get("text", ""),
+                    "title": meta.get("title", "Unknown"),
+                    "document_id": meta.get("document_id"),
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "relevance_score": float(distance),
                 })
                 if len(filtered_results) >= top_k:
                     break
