@@ -33,16 +33,10 @@ except Exception as vault_error:
 
 try:
     from agents.simple_planner import SimplePlanner as AgenticPlanner
-except Exception as planner_import_error:  # noqa: BLE001
-    try:
-        from agents.planner import AgenticPlanner
-    except Exception:
-        AgenticPlanner = None  # type: ignore[assignment]
-        planner_initialization_error: Optional[Exception] = planner_import_error
-    else:
-        planner_initialization_error: Optional[Exception] = None
-else:
     planner_initialization_error: Optional[Exception] = None
+except Exception as planner_import_error:  # noqa: BLE001
+    AgenticPlanner = None  # type: ignore[assignment]
+    planner_initialization_error: Optional[Exception] = planner_import_error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

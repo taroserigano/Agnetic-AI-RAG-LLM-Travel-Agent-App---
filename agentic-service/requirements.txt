@@ -4,12 +4,8 @@ uvicorn[standard]>=0.27.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 
-# LangChain & LangGraph for agentic workflows
-langchain==0.1.4
-langchain-openai==0.0.5
-langchain-community==0.0.16
-langgraph==0.2.45
-langsmith==0.0.83
+# Minimal LangChain for text splitting only
+langchain-text-splitters==0.2.2
 
 # OpenAI API
 openai==1.10.0
