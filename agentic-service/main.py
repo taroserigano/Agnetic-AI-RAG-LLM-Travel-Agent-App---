@@ -14,6 +14,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from config import settings
+
+# Setup logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 if sys.version_info >= (3, 12):
     _native_forward_eval = typing.ForwardRef._evaluate
 
@@ -37,9 +42,6 @@ try:
 except Exception as planner_import_error:  # noqa: BLE001
     AgenticPlanner = None  # type: ignore[assignment]
     planner_initialization_error: Optional[Exception] = planner_import_error
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Agentic Travel Planner",

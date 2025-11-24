@@ -7,7 +7,6 @@ from typing import Optional, Sequence, List, Dict, Any, Generator
 import json
 
 from fastapi import UploadFile
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 from docx import Document
 import openai
@@ -18,6 +17,46 @@ import faiss
 import numpy as np
 
 from config import settings
+
+
+class SimpleTextSplitter:
+    """Simple text splitter to avoid LangChain dependencies."""
+    
+    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+    
+    def split_text(self, text: str) -> List[str]:
+        """Split text into overlapping chunks."""
+        if not text:
+            return []
+        
+        chunks = []
+        start = 0
+        text_len = len(text)
+        
+        while start < text_len:
+            end = start + self.chunk_size
+            chunk = text[start:end]
+            
+            # Try to break at sentence boundary if possible
+            if end < text_len:
+                # Look for sentence endings
+                for sep in ['. ', '.\n', '! ', '!\n', '? ', '?\n']:
+                    last_sep = chunk.rfind(sep)
+                    if last_sep > self.chunk_size // 2:  # Only break if past halfway
+                        chunk = text[start:start + last_sep + len(sep)]
+                        end = start + last_sep + len(sep)
+                        break
+            
+            chunks.append(chunk.strip())
+            start = end - self.chunk_overlap
+            
+            # Prevent infinite loop
+            if start >= text_len or (end >= text_len and len(chunks) > 0):
+                break
+        
+        return chunks
 
 
 class VaultIngestionService:
@@ -34,7 +73,7 @@ class VaultIngestionService:
 
         # Embedder + splitter reused across requests to avoid reload overhead.
         self.embedder_model = SentenceTransformer(settings.hf_model_name)
-        self.splitter = RecursiveCharacterTextSplitter(
+        self.splitter = SimpleTextSplitter(
             chunk_size=800,
             chunk_overlap=200,
         )
