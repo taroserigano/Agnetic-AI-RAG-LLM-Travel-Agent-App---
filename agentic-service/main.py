@@ -86,6 +86,17 @@ else:
 vault_service = VaultIngestionService() if VaultIngestionService else None
 
 
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "service": "Agentic Travel Planner API",
+        "status": "running",
+        "version": "0.1.0",
+        "health_check": "/api/v1/agentic/status"
+    }
+
+
 class PlanRequest(BaseModel):
     """Request schema for itinerary planning."""
     city: str
@@ -193,6 +204,17 @@ async def create_plan(request: PlanRequest):
     except Exception as e:
         logger.error(f"Planning failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Planning error: {str(e)}")
+
+
+@app.get("/api/v1/agentic/status")
+async def health_check():
+    """Health check endpoint for Render."""
+    return {
+        "status": "healthy",
+        "service": "agentic-travel-planner",
+        "vault_available": VaultIngestionService is not None,
+        "planner_available": AgenticPlanner is not None
+    }
 
 
 @app.get("/api/agentic/status/{run_id}")
