@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
 const TravelAgent = ({ userId }) => {
   // Form state
   const [destination, setDestination] = useState("");
   const [country, setCountry] = useState("");
-  const [days, setDays] = useState(7);
+  const [days, setDays] = useState(2);
   const [budget, setBudget] = useState("");
   const [preferences, setPreferences] = useState({
     adventure: false,
@@ -31,6 +31,23 @@ const TravelAgent = ({ userId }) => {
   // Saved trips
   const [savedTrips, setSavedTrips] = useState([]);
   const [showSavedTrips, setShowSavedTrips] = useState(false);
+
+  // Fetch saved trips on component mount
+  useEffect(() => {
+    const fetchSavedTrips = async () => {
+      try {
+        const response = await fetch("/api/travel/list");
+        if (response.ok) {
+          const data = await response.json();
+          setSavedTrips(data.trips || []);
+        }
+      } catch (err) {
+        console.error("Error fetching saved trips:", err);
+      }
+    };
+
+    fetchSavedTrips();
+  }, []);
 
   const handlePreferenceToggle = (pref) => {
     setPreferences((prev) => ({
@@ -60,7 +77,11 @@ const TravelAgent = ({ userId }) => {
 
       setAgentLogs((prev) => [
         ...prev,
-        { agent: "system", message: "🚀 Initializing multi-agent planning system...", timestamp: new Date() },
+        {
+          agent: "system",
+          message: "🚀 Initializing multi-agent planning system...",
+          timestamp: new Date(),
+        },
       ]);
 
       const response = await fetch("/api/travel/generate", {
@@ -87,7 +108,11 @@ const TravelAgent = ({ userId }) => {
 
       setAgentLogs((prev) => [
         ...prev,
-        { agent: "supervisor", message: "✅ Planning workflow completed", timestamp: new Date() },
+        {
+          agent: "supervisor",
+          message: "✅ Planning workflow completed",
+          timestamp: new Date(),
+        },
       ]);
 
       setItinerary(data);
@@ -166,11 +191,67 @@ const TravelAgent = ({ userId }) => {
       }
 
       const data = await response.json();
-      setSavedTrips((prev) => [data, ...prev]);
+
+      // Fetch updated list of saved trips
+      const listResponse = await fetch("/api/travel/list");
+      if (listResponse.ok) {
+        const listData = await listResponse.json();
+        setSavedTrips(listData.trips || []);
+      }
+
       toast.success("Trip saved successfully!");
     } catch (err) {
       console.error("Save error:", err);
       toast.error("Failed to save trip");
+    }
+  };
+
+  const handleLoadTrip = (trip) => {
+    // Reconstruct the itinerary format from saved trip
+    const loadedItinerary = {
+      run_id: trip.metadata?.run_id || trip.id,
+      tour: {
+        city: trip.city,
+        country: trip.country,
+        title: trip.title,
+        description: trip.description,
+        image: trip.image,
+        stops: trip.stops || [],
+        daily_schedule: trip.metadata?.daily_schedule || [],
+        daily_plans: trip.metadata?.daily_plans || [],
+        compliance: trip.metadata?.compliance || {},
+        research: trip.metadata?.research || {},
+      },
+      cost: trip.metadata?.cost || {},
+      citations: trip.metadata?.citations || [],
+      status: "loaded",
+    };
+
+    setItinerary(loadedItinerary);
+    setShowSavedTrips(false);
+    toast.success(`Loaded: ${trip.title}`);
+  };
+
+  const handleDeleteTrip = async (tripId, tripTitle) => {
+    if (!confirm(`Are you sure you want to delete "${tripTitle}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/travel/delete?id=${tripId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete trip");
+      }
+
+      // Remove from local state
+      setSavedTrips((prev) => prev.filter((trip) => trip.id !== tripId));
+      toast.success("Trip deleted successfully!");
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Failed to delete trip");
     }
   };
 
@@ -181,9 +262,7 @@ const TravelAgent = ({ userId }) => {
         <div className="w-full lg:w-2/5">
           <div className="card bg-base-100 shadow-xl sticky top-4">
             <div className="card-body">
-              <h2 className="card-title text-2xl mb-4">
-                ✈️ AI Travel Planner
-              </h2>
+              <h2 className="card-title text-2xl mb-4">✈️ AI Travel Planner</h2>
 
               <form onSubmit={handleGenerateTrip} className="space-y-4">
                 {/* Destination */}
@@ -414,134 +493,210 @@ const TravelAgent = ({ userId }) => {
                   )}
 
                   {/* Daily Plans - Hour by Hour Schedule */}
-                  {itinerary.tour.daily_plans && itinerary.tour.daily_plans.length > 0 && (
-                    <div className="mt-6">
-                      <h4 className="font-semibold text-lg mb-4">📅 Detailed Daily Plans (7 AM - 8 PM)</h4>
-                      <div className="space-y-6">
-                        {itinerary.tour.daily_plans.map((dayPlan, dayIdx) => (
-                          <div key={dayIdx} className="collapse collapse-arrow bg-base-200">
-                            <input type="checkbox" defaultChecked={dayIdx === 0} />
-                            <div className="collapse-title text-lg font-semibold">
-                              <div className="flex items-center justify-between">
-                                <span>
-                                  Day {dayPlan.day}: {dayPlan.theme}
-                                </span>
-                                <span className="text-sm opacity-70 mr-4">
-                                  {dayPlan.total_activities || dayPlan.plan?.length || 0} activities
-                                </span>
-                              </div>
-                            </div>
-                            <div className="collapse-content">
-                              <div className="space-y-3 pt-2">
-                                {/* Timeline of activities */}
-                                {dayPlan.plan && dayPlan.plan.map((activity, actIdx) => (
-                                  <div key={actIdx} className="flex gap-4 items-start">
-                                    <div className="flex-shrink-0 w-20 text-right">
-                                      <span className="badge badge-primary badge-sm">
-                                        {activity.time}
-                                      </span>
-                                    </div>
-                                    <div className="flex-grow bg-base-100 p-3 rounded-lg">
-                                      <div className="font-semibold">{activity.activity}</div>
-                                      <div className="text-sm opacity-70 flex items-center gap-1 mt-1">
-                                        <span>📍</span>
-                                        <span>{activity.location}</span>
-                                      </div>
-                                      {activity.duration && (
-                                        <div className="text-xs opacity-60 mt-1">
-                                          ⏱️ {activity.duration}
-                                        </div>
-                                      )}
-                                      {activity.notes && (
-                                        <div className="text-sm mt-2 opacity-80">
-                                          💡 {activity.notes}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-
-                                {/* Day summary */}
-                                {(dayPlan.estimated_walking || dayPlan.tips) && (
-                                  <div className="bg-info bg-opacity-10 p-3 rounded-lg mt-4">
-                                    {dayPlan.estimated_walking && (
-                                      <div className="text-sm">
-                                        <strong>🚶 Walking:</strong> {dayPlan.estimated_walking}
-                                      </div>
-                                    )}
-                                    {dayPlan.tips && (
-                                      <div className="text-sm mt-2">
-                                        <strong>💡 Tip:</strong> {dayPlan.tips}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Real Travel Data from Amadeus */}
-                  {itinerary.tour.real_data && itinerary.tour.real_data.has_real_data && (
-                    <div className="mt-4">
-                      <div className="alert alert-success">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span>✈️ Real-time travel data from Amadeus API</span>
-                      </div>
-
-                      {/* Real Flight Data */}
-                      {itinerary.tour.real_data.flights && itinerary.tour.real_data.flights.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="font-semibold mb-2">✈️ Available Flights:</h4>
-                          <div className="space-y-2">
-                            {itinerary.tour.real_data.flights.slice(0, 3).map((flight, idx) => (
-                              <div key={idx} className="bg-base-200 p-4 rounded-lg">
-                                <div className="flex justify-between items-center">
-                                  <div>
-                                    <p className="font-semibold">Flight Option {idx + 1}</p>
-                                    {flight.itineraries && flight.itineraries[0] && (
-                                      <p className="text-sm opacity-70">
-                                        {flight.itineraries[0].segments && flight.itineraries[0].segments[0] && (
-                                          <>
-                                            {flight.itineraries[0].segments[0].departure.airport} → {flight.itineraries[0].segments[flight.itineraries[0].segments.length - 1].arrival.airport}
-                                          </>
-                                        )}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xl font-bold text-primary">
-                                      {flight.price.currency} {parseFloat(flight.price.total).toFixed(2)}
-                                    </p>
-                                  </div>
+                  {itinerary.tour.daily_plans &&
+                    itinerary.tour.daily_plans.length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="font-semibold text-lg mb-4">
+                          📅 Detailed Daily Plans (7 AM - 8 PM)
+                        </h4>
+                        <div className="space-y-6">
+                          {itinerary.tour.daily_plans.map((dayPlan, dayIdx) => (
+                            <div
+                              key={dayIdx}
+                              className="collapse collapse-arrow bg-base-200"
+                            >
+                              <input
+                                type="checkbox"
+                                defaultChecked={dayIdx === 0}
+                              />
+                              <div className="collapse-title text-lg font-semibold">
+                                <div className="flex items-center justify-between">
+                                  <span>
+                                    Day {dayPlan.day}: {dayPlan.theme}
+                                  </span>
+                                  <span className="text-sm opacity-70 mr-4">
+                                    {dayPlan.total_activities ||
+                                      dayPlan.plan?.length ||
+                                      0}{" "}
+                                    activities
+                                  </span>
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                              <div className="collapse-content">
+                                <div className="space-y-3 pt-2">
+                                  {/* Timeline of activities */}
+                                  {dayPlan.plan &&
+                                    dayPlan.plan.map((activity, actIdx) => (
+                                      <div
+                                        key={actIdx}
+                                        className="flex gap-4 items-start"
+                                      >
+                                        <div className="flex-shrink-0 w-20 text-right">
+                                          <span className="badge badge-primary badge-sm">
+                                            {activity.time}
+                                          </span>
+                                        </div>
+                                        <div className="flex-grow bg-base-100 p-3 rounded-lg">
+                                          <div className="font-semibold">
+                                            {activity.activity}
+                                          </div>
+                                          <div className="text-sm opacity-70 flex items-center gap-1 mt-1">
+                                            <span>📍</span>
+                                            <span>{activity.location}</span>
+                                          </div>
+                                          {activity.duration && (
+                                            <div className="text-xs opacity-60 mt-1">
+                                              ⏱️ {activity.duration}
+                                            </div>
+                                          )}
+                                          {activity.notes && (
+                                            <div className="text-sm mt-2 opacity-80">
+                                              💡 {activity.notes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
 
-                      {/* Real Hotel Data */}
-                      {itinerary.tour.real_data.hotels && itinerary.tour.real_data.hotels.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="font-semibold mb-2">🏨 Recommended Hotels:</h4>
-                          <div className="space-y-2">
-                            {itinerary.tour.real_data.hotels.slice(0, 5).map((hotel, idx) => (
-                              <div key={idx} className="bg-base-200 p-3 rounded-lg">
-                                <p className="font-semibold">{hotel.name}</p>
-                                {hotel.address && hotel.address.cityName && (
-                                  <p className="text-sm opacity-70">{hotel.address.cityName}</p>
-                                )}
+                                  {/* Day summary */}
+                                  {(dayPlan.estimated_walking ||
+                                    dayPlan.tips) && (
+                                    <div className="bg-info bg-opacity-10 p-3 rounded-lg mt-4">
+                                      {dayPlan.estimated_walking && (
+                                        <div className="text-sm">
+                                          <strong>🚶 Walking:</strong>{" "}
+                                          {dayPlan.estimated_walking}
+                                        </div>
+                                      )}
+                                      {dayPlan.tips && (
+                                        <div className="text-sm mt-2">
+                                          <strong>💡 Tip:</strong>{" "}
+                                          {dayPlan.tips}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )}
+
+                  {/* Real Travel Data from Amadeus */}
+                  {itinerary.tour.real_data &&
+                    itinerary.tour.real_data.has_real_data && (
+                      <div className="mt-4">
+                        <div className="alert alert-success">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="stroke-current shrink-0 h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <span>✈️ Real-time travel data from Amadeus API</span>
+                        </div>
+
+                        {/* Real Flight Data */}
+                        {itinerary.tour.real_data.flights &&
+                          itinerary.tour.real_data.flights.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="font-semibold mb-2">
+                                ✈️ Available Flights:
+                              </h4>
+                              <div className="space-y-2">
+                                {itinerary.tour.real_data.flights
+                                  .slice(0, 3)
+                                  .map((flight, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="bg-base-200 p-4 rounded-lg"
+                                    >
+                                      <div className="flex justify-between items-center">
+                                        <div>
+                                          <p className="font-semibold">
+                                            Flight Option {idx + 1}
+                                          </p>
+                                          {flight.itineraries &&
+                                            flight.itineraries[0] && (
+                                              <p className="text-sm opacity-70">
+                                                {flight.itineraries[0]
+                                                  .segments &&
+                                                  flight.itineraries[0]
+                                                    .segments[0] && (
+                                                    <>
+                                                      {
+                                                        flight.itineraries[0]
+                                                          .segments[0].departure
+                                                          .airport
+                                                      }{" "}
+                                                      →{" "}
+                                                      {
+                                                        flight.itineraries[0]
+                                                          .segments[
+                                                          flight.itineraries[0]
+                                                            .segments.length - 1
+                                                        ].arrival.airport
+                                                      }
+                                                    </>
+                                                  )}
+                                              </p>
+                                            )}
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-xl font-bold text-primary">
+                                            {flight.price.currency}{" "}
+                                            {parseFloat(
+                                              flight.price.total
+                                            ).toFixed(2)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Real Hotel Data */}
+                        {itinerary.tour.real_data.hotels &&
+                          itinerary.tour.real_data.hotels.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="font-semibold mb-2">
+                                🏨 Recommended Hotels:
+                              </h4>
+                              <div className="space-y-2">
+                                {itinerary.tour.real_data.hotels
+                                  .slice(0, 5)
+                                  .map((hotel, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="bg-base-200 p-3 rounded-lg"
+                                    >
+                                      <p className="font-semibold">
+                                        {hotel.name}
+                                      </p>
+                                      {hotel.address &&
+                                        hotel.address.cityName && (
+                                          <p className="text-sm opacity-70">
+                                            {hotel.address.cityName}
+                                          </p>
+                                        )}
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    )}
 
                   {/* Research Insights */}
                   {itinerary.tour.research && (
@@ -571,12 +726,12 @@ const TravelAgent = ({ userId }) => {
                         ⚠️ Travel Requirements:
                       </h4>
                       <div className="bg-base-200 p-4 rounded-lg space-y-2">
-                        <p>
+                        {/* <p>
                           <strong>Visa Required:</strong>{" "}
                           {itinerary.tour.compliance.visa_required
                             ? "Yes"
                             : "No"}
-                        </p>
+                        </p> */}
                         <p>
                           <strong>Safety Level:</strong>{" "}
                           {itinerary.tour.compliance.safety_level || "N/A"}
@@ -586,7 +741,7 @@ const TravelAgent = ({ userId }) => {
                   )}
 
                   {/* Citations */}
-                  {itinerary.citations && itinerary.citations.length > 0 && (
+                  {/* {itinerary.citations && itinerary.citations.length > 0 && (
                     <div className="mt-4">
                       <details className="collapse collapse-arrow bg-base-200">
                         <summary className="collapse-title font-semibold">
@@ -603,7 +758,7 @@ const TravelAgent = ({ userId }) => {
                         </div>
                       </details>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
 
@@ -674,7 +829,9 @@ const TravelAgent = ({ userId }) => {
       {showSavedTrips && (
         <div className="modal modal-open">
           <div className="modal-box max-w-4xl">
-            <h3 className="font-bold text-lg mb-4">📚 Saved Trips</h3>
+            <h3 className="font-bold text-lg mb-4">
+              📚 Saved Trips ({savedTrips.length})
+            </h3>
 
             {savedTrips.length === 0 ? (
               <div className="text-center py-8 text-base-content/50">
@@ -684,15 +841,33 @@ const TravelAgent = ({ userId }) => {
               <div className="space-y-4">
                 {savedTrips.map((trip, idx) => (
                   <div
-                    key={idx}
-                    className="card bg-base-200 hover:bg-base-300 cursor-pointer"
+                    key={trip.id || idx}
+                    className="card bg-base-200 hover:bg-base-300"
                   >
                     <div className="card-body">
                       <h4 className="card-title">{trip.title}</h4>
+                      <p className="text-sm opacity-70">
+                        {trip.city}, {trip.country}
+                      </p>
                       <p className="text-sm opacity-70">{trip.description}</p>
-                      <div className="card-actions justify-end">
-                        <button className="btn btn-sm btn-primary">
-                          View
+                      <div className="text-xs opacity-50 mt-2">
+                        Created: {new Date(trip.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="card-actions justify-end gap-2">
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleLoadTrip(trip)}
+                        >
+                          📖 View
+                        </button>
+                        <button
+                          className="btn btn-sm btn-error btn-outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTrip(trip.id, trip.title);
+                          }}
+                        >
+                          🗑️ Delete
                         </button>
                       </div>
                     </div>
@@ -702,10 +877,7 @@ const TravelAgent = ({ userId }) => {
             )}
 
             <div className="modal-action">
-              <button
-                className="btn"
-                onClick={() => setShowSavedTrips(false)}
-              >
+              <button className="btn" onClick={() => setShowSavedTrips(false)}>
                 Close
               </button>
             </div>
@@ -717,4 +889,3 @@ const TravelAgent = ({ userId }) => {
 };
 
 export default TravelAgent;
-

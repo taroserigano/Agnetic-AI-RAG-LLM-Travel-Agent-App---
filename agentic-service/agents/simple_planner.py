@@ -32,7 +32,7 @@ class SimplePlanner:
         country: str,
         days: int,
         budget: Optional[float] = None,
-        preferences: Dict[str, Any] = None,
+        preferences: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """

@@ -51,10 +51,15 @@ export async function POST(request) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({
-        detail: "Failed to generate itinerary",
+        detail: `Backend returned ${response.status}: ${response.statusText}`,
       }));
+      console.error("Backend error:", errorData);
       return NextResponse.json(
-        { error: errorData.detail || "Failed to generate itinerary" },
+        { 
+          error: errorData.detail || "Failed to generate itinerary",
+          status: response.status,
+          details: errorData
+        },
         { status: response.status }
       );
     }
@@ -64,7 +69,11 @@ export async function POST(request) {
   } catch (error) {
     console.error("Error generating itinerary:", error);
     return NextResponse.json(
-      { error: "Failed to generate itinerary" },
+      { 
+        error: "Failed to generate itinerary",
+        details: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
