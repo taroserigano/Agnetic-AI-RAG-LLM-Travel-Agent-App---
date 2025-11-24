@@ -36,12 +36,22 @@ except Exception as vault_error:
     logger.warning(f"Vault service unavailable: {vault_error}")
     VaultIngestionService = None  # type: ignore
 
+# Try LangGraph planner first (preferred), fall back to SimplePlanner
+AgenticPlanner = None
+planner_initialization_error: Optional[Exception] = None
+
 try:
-    from agents.simple_planner import SimplePlanner as AgenticPlanner
-    planner_initialization_error: Optional[Exception] = None
-except Exception as planner_import_error:  # noqa: BLE001
-    AgenticPlanner = None  # type: ignore[assignment]
-    planner_initialization_error: Optional[Exception] = planner_import_error
+    from agents.langgraph_planner import LangGraphPlanner as AgenticPlanner
+    logger.info("✓ LangGraph planner loaded successfully")
+except Exception as langgraph_error:  # noqa: BLE001
+    logger.warning(f"LangGraph planner unavailable: {langgraph_error}, falling back to SimplePlanner")
+    try:
+        from agents.simple_planner import SimplePlanner as AgenticPlanner
+        logger.info("✓ SimplePlanner loaded as fallback")
+    except Exception as simple_error:  # noqa: BLE001
+        AgenticPlanner = None  # type: ignore[assignment]
+        planner_initialization_error = simple_error
+        logger.error(f"Both planners failed to load: {simple_error}")
 
 app = FastAPI(
     title="Agentic Travel Planner",
